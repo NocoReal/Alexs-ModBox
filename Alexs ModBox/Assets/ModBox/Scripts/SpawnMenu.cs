@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using TMPro;
+using UnityEngine.UI;
 
 public class SpawnMenu : MonoBehaviour
 {
@@ -7,9 +9,12 @@ public class SpawnMenu : MonoBehaviour
     [SerializeField] private InputActionReference TurnOnMenuButton;
     private PlayerMovement PM;
     private PlayerToolSpawn PTS;
+    [SerializeField] private TMP_Text alphaValueText;
+    [SerializeField] private Slider alphaSlider;
 
     private void Awake()
     {
+        alphaValueText.text = alphaSlider.value.ToString("F1");
         PM = Player.GetComponent<PlayerMovement>();
         PTS = Player.GetComponent<PlayerToolSpawn>();
         Menu.gameObject.SetActive(false);
@@ -34,6 +39,11 @@ public class SpawnMenu : MonoBehaviour
             Cursor.visible = true;
             Menu.gameObject.SetActive(true);// else set on
         }
+    }
+    public void UpdatedAlpha()
+    {
+        alphaValueText.text = alphaSlider.value.ToString("F1");
+        PTS.MaterialChangeAlpha(alphaSlider.value);
     }
 
     public void MenuSpawnObject(int ItemId)
