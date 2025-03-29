@@ -5,30 +5,20 @@ using UnityEngine.InputSystem;
 public class PlayerToolSpawn : MonoBehaviour
 {
     private Transform playerCamera;
-    private int localItemId = 0, materialId = 0;
-    private float alpha = 1.0f;
+    private int localItemId = 0, surfaceTypeId = 0;
     [SerializeField] private float MaxDistance = 20;
-    [SerializeField] private InputActionReference inputSpawn;
-    [SerializeField] private List<GameObject> objectList;
+    [SerializeField] private InputActionReference inputSpawn,inputUndo;
+    [SerializeField] private List<GameObject> objectList,spawnedObjectList;
     [SerializeField] private List<Material> materialList;
+    private Color matColor = new Color(1,1,1,1);
 
     [HideInInspector] public bool MenuIsOn = false;
-    public enum SurfaceType
-    {
-        Opaque,
-        Transparent
-    }
-    public enum BlendMode
-    {
-        Alpha,
-        Premultiply,
-        Additive,
-        Multiply
-    }
+
     private void Awake()
     {
         playerCamera = GetComponentInParent<PlayerMovement>().Camera;
         inputSpawn.action.performed += ToolSpawnInput;
+        inputUndo.action.performed += UndoLastObject;
     }
     public void ToolSpawnObject(int ItemId) // called either locally or by spawnMenu
     {
@@ -41,11 +31,9 @@ public class PlayerToolSpawn : MonoBehaviour
         Vector3 spawnPos = playerCamera.position + (playerCamera.forward * distance)+ Vector3.up /2;
 
         GameObject tempObj = Instantiate(objectList[ItemId], spawnPos, Quaternion.identity);
-        tempObj.GetComponent<Renderer>().material = materialList[materialId];
-        Color Col = tempObj.GetComponent<Renderer>().material.color;
-        Col = new Color(Col.r, Col.g, Col.b, alpha);
-        tempObj.GetComponent<Renderer>().material.color = Col;
-        tempObj = null;
+        tempObj.GetComponent<Renderer>().material = materialList[surfaceTypeId];
+        tempObj.GetComponent<Renderer>().material.color = matColor;
+        spawnedObjectList.Add(tempObj);
     }
     public void ChangeSpawnObject(int ItemId) // this is called inside the spawnMenu to change the spawned object
     {
@@ -55,12 +43,37 @@ public class PlayerToolSpawn : MonoBehaviour
     {
         ToolSpawnObject(localItemId);
     }
-    public void MaterialIdChange(int matId)
+    public void MaterialChangeSurfaceType(bool transparent)
     {
-        materialId = matId;
+        surfaceTypeId = transparent ? 1 : 0;
     }
-    public void MaterialChangeAlpha(float matAlpha)
+    public void MaterialChangeColor(Color col)
     {
-        alpha = matAlpha;
+        matColor = col;
+    }
+    void UndoLastObject(InputAction.CallbackContext obj)
+    {
+        if (spawnedObjectList.Count < 1)
+            return;
+        GameObject Obj = spawnedObjectList[spawnedObjectList.Count - 1];
+        Debug.Log(Obj.name.Substring(0, Obj.name.Length - 7).ToString());
+        spawnedObjectList.Remove(Obj);
+        Destroy(Obj);
+    }
+    
+    public void DeleteEverything()
+    {
+        foreach (var obj in spawnedObjectList)
+        {
+            Debug.Log(obj.name.Substring(0, obj.name.Length - 7).ToString());
+            Destroy(obj);
+        }
+        spawnedObjectList.Clear();
+
+    }
+    public void KillZoneDestroy(GameObject obj)
+    {
+        Debug.Log(obj.name.Substring(0, obj.name.Length - 7).ToString());
+        spawnedObjectList.Remove(obj);
     }
 }

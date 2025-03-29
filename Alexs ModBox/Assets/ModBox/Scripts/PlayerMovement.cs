@@ -4,9 +4,9 @@ using UnityEngine.InputSystem;
 public class PlayerMovement : MonoBehaviour
 {
     private static readonly float Epsilon = 0.0254f * 0.03125f, unitToMeter = 0.0254f; // quake/source units to meters
-    private float hostFrame, rampConsider;
+    private float hostFrame, rampConsider, usedSpeed;
 
-    private bool OnGround, WasGrounded, stepNextTick = false;
+    private bool OnGround, WasGrounded, stepNextTick = false, IsCrouched = false, WasCrouched = false,CrouchInput=false,IsRunning=false;
     private Vector3 oldStepPos, oldStepVel, playerBoundingBox, directionWish; //for stepping
 
 
@@ -23,17 +23,25 @@ public class PlayerMovement : MonoBehaviour
     [Header("Quake Unit = 0.0254m")]
     [Header("Player Sizes")]
     [Tooltip("Quake = 56u")][SerializeField] private int playerHeight = 56;
+    [SerializeField] private int playerHeightCrouch = 28;
+
     [Tooltip("Quake = 32u")][SerializeField] private int playerWidthLength = 32;
     [Tooltip("Quake = 46u")][SerializeField] private int playerEyeHeight = 46;
+    [SerializeField] private int playerEyeHeightCrouch = 18;
+
     [Tooltip("Quake = 10u")][SerializeField] private int accelerate = 10;
     [Tooltip("Source = 10u")][SerializeField] private int accelerateAir = 10;
     [Tooltip("Quake = 100u")][SerializeField] private int speedStop = 100;
     [Tooltip("Quake = 320u")][SerializeField] private int speedRun = 320;
+    [SerializeField] private int speedWalk = 190;
+    [SerializeField] private int speedCrouch = 64;
     [Tooltip("Quake = 30u")][SerializeField] private int speedAir = 30;
     [Tooltip("Quake = 800u")][SerializeField] private int gravity = 800;
     [Tooltip("Quake = 4")][SerializeField] private int friction = 4;
     [Tooltip("Quake = 18u")][SerializeField] private int stepSize = 18;
     [Tooltip("Quake = 270u")][SerializeField] private int jumpAccel = 270;
+    [SerializeField] private int jumpAccelCrouch = 130;
+
     [SerializeField] private float rampDegrees = 45;
 
     [Header("Mouse Settings")]
@@ -42,7 +50,7 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("Inputs")]
     [SerializeField] private InputActionReference inputMove;
-    [SerializeField] private InputActionReference inputJump, inputLook;
+    [SerializeField] private InputActionReference inputJump, inputLook, inputCrouch,inputRun;
     [Header("Misc")]
     public Transform Camera;
 
@@ -50,6 +58,8 @@ public class PlayerMovement : MonoBehaviour
 
     void Awake() // initializing some stuff
     {
+        QualitySettings.vSyncCount = 1;
+        Application.targetFrameRate = 240;
         rampConsider = Mathf.Cos(rampDegrees * Mathf.Deg2Rad);
         hostFrame = Time.fixedDeltaTime;
 
@@ -67,6 +77,12 @@ public class PlayerMovement : MonoBehaviour
 
         inputMove.action.performed += ctx => moveDirection = ctx.ReadValue<Vector2>();
         inputMove.action.canceled += ctx => moveDirection = Vector2.zero;
+
+        inputCrouch.action.performed += toggleCrouchInput;
+        inputCrouch.action.canceled += toggleCrouchInput;
+
+        inputRun.action.performed += toggleRunInput;
+        inputRun.action.canceled += toggleRunInput;
 
         inputLook.action.performed += ctx => CameraMove(ctx.ReadValue<Vector2>());
 
@@ -109,15 +125,12 @@ public class PlayerMovement : MonoBehaviour
     void CheckGroundState()
     {
         WasGrounded = OnGround;
-        if (Physics.BoxCast(transform.position + Vector3.up * 0.4f * unitToMeter, col.bounds.extents, Vector3.down, out RaycastHit hitInfo, transform.rotation, 0.5f * unitToMeter, GroundMask))
-        {
+        //VisualiseBox.DisplayBoxCast(transform.position + Vector3.up * 0.4f * unitToMeter, col.bounds.extents, Vector3.down, transform.rotation, 0.5f * unitToMeter, Color.red);
+        Physics.BoxCast(transform.position + Vector3.up * 0.4f * unitToMeter, col.bounds.extents, Vector3.down, out RaycastHit hitInfo, transform.rotation, 0.5f * unitToMeter, GroundMask);
+
             OnGround = hitInfo.normal.y > rampConsider;
             directionWish = OnGround ? Vector3.ProjectOnPlane(RotateInputByCamera(moveDirection, Camera).normalized, hitInfo.normal).normalized : RotateInputByCamera(moveDirection, Camera).normalized;
-        }
-        else
-        {
-            directionWish = RotateInputByCamera(moveDirection, Camera).normalized; OnGround = false;
-        }
+
     }
     #region Movement
     void StepMove(Vector3 newVelocity) // it has some problems on sloped surfaces, i cant be bothered to fix them. ITS Good enough
@@ -210,10 +223,50 @@ public class PlayerMovement : MonoBehaviour
 
         rb.linearVelocity += accelspeed * unitToMeter * directionWish.normalized;
     }
+    void CrouchFunc()
+    {
+        // Toggle crouch state only when input changes
+        if (CrouchInput == WasCrouched)
+            return;
+        // Check if we can actually crouch/stand
+        Vector3 size = new Vector3(playerWidthLength, playerHeight, playerWidthLength) * unitToMeter / 2;
+        float dist = ((playerHeight - playerHeightCrouch) / 2) * unitToMeter;
+
+        bool canChangeStance;
+        if (IsCrouched)
+            canChangeStance = !Physics.BoxCast(transform.position, size, Vector3.up, Quaternion.identity, dist, GroundMask); // Trying to stand up - check upwards
+        else
+            canChangeStance = !Physics.BoxCast(transform.position, size, OnGround ? Vector3.up : Vector3.down, Quaternion.identity, dist, GroundMask); // Trying to crouch - check in current direction based on ground state
+
+        // Only change stance if we can
+        if (canChangeStance)
+                IsCrouched = !IsCrouched;
+        
+        // Update camera and collider based on current stance
+        if (!IsCrouched)
+        {
+            // Standing
+            Camera.transform.position = transform.position + Vector3.up * playerEyeHeight * unitToMeter;
+            playerBoundingBox = new Vector3(playerWidthLength, playerHeight, playerWidthLength) * unitToMeter;
+            col.size = playerBoundingBox;
+        }
+        else
+        {
+            // Crouching
+            Camera.transform.position = transform.position + Vector3.up * playerEyeHeightCrouch * unitToMeter;
+            playerBoundingBox = new Vector3(playerWidthLength, playerHeightCrouch, playerWidthLength) * unitToMeter;
+            col.size = playerBoundingBox;
+        }
+
+        // Update previous state
+        WasCrouched = IsCrouched;
+    }
 
     void WalkMove()
     {
-        Accelerate(accelerate, speedRun);
+        usedSpeed = IsCrouched ? speedCrouch : IsRunning ? speedRun : speedWalk;
+        
+        Accelerate(accelerate, usedSpeed);
 
         StepMove(rb.linearVelocity);
     }
@@ -235,9 +288,13 @@ public class PlayerMovement : MonoBehaviour
             AirMove();
         }
     }
+
+    
+
     #endregion
     private void FixedUpdate()
     {
+        CrouchFunc();
         CheckGroundState();
         FullWalkMove();
     }
@@ -248,9 +305,19 @@ public class PlayerMovement : MonoBehaviour
         {
             OnGround = false;
             WasGrounded = true;
-
-            rb.linearVelocity += Vector3.up * jumpAccel * unitToMeter;
+            if(IsCrouched)
+                rb.linearVelocity += Vector3.up * jumpAccelCrouch * unitToMeter;
+            else
+                rb.linearVelocity += Vector3.up * jumpAccel * unitToMeter;
         }
         else return;
+    }
+    void toggleCrouchInput(InputAction.CallbackContext obj)
+    {
+        CrouchInput = CrouchInput ? false : true;
+    }
+    void toggleRunInput(InputAction.CallbackContext obj)
+    {
+        IsRunning = IsRunning ? false : true;
     }
 }
