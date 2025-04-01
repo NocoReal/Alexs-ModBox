@@ -15,7 +15,10 @@ public class SpawnMenu : MonoBehaviour
     private Image ColorImage;
     private Color finalColor;
     private Vector2 CursorPos;
-    private bool hsvOn=false;
+    private bool hsvOn = false;
+    [HideInInspector]
+    public bool escapeMenuOn = false,spawnMenu = false;
+
     private void Awake()
     {
         PM = Player.GetComponent<PlayerMovement>();
@@ -41,18 +44,26 @@ public class SpawnMenu : MonoBehaviour
         HSVPanel.gameObject.SetActive(hsvOn);
         RGBPanel.gameObject.SetActive(!hsvOn);
 
-        TurnOnMenuButton.action.performed += ToggleMenu;
-        TurnOnMenuButton.action.canceled += ToggleMenu;
+        TurnOnMenuButton.action.performed += ToggleMenuInput;
+        TurnOnMenuButton.action.canceled += ToggleMenuInput;
 
-        CursorPos = new Vector2(Screen.width/2, Screen.height/2);
+        CursorPos = new Vector2(Screen.width / 2, Screen.height / 2);
     }
-    private void ToggleMenu(InputAction.CallbackContext obj)
+    void ToggleMenuInput(InputAction.CallbackContext obj)
     {
-        if (Menu.activeSelf)//if on
+        ToggleMenu();
+    }
+    public void ToggleMenu()
+    {
+        if (escapeMenuOn)
+            return;
+        spawnMenu = !spawnMenu;
+        if (!spawnMenu)//if on
         {
             CursorPos = Input.mousePosition;
-            PM.CanMoveCamera = true;
-            PTS.MenuIsOn = false;
+            PM.CantAccel = false;
+            PM.CantRotateCam = false;
+            PM.CantShoot = false;
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
             Menu.gameObject.SetActive(false);// set off
@@ -60,8 +71,9 @@ public class SpawnMenu : MonoBehaviour
         }
         else
         {
-            PM.CanMoveCamera = false;
-            PTS.MenuIsOn = true;
+            PM.CantAccel = true;
+            PM.CantRotateCam = true;
+            PM.CantShoot = true;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
             Mouse.current.WarpCursorPosition(CursorPos);

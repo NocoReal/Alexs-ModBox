@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using TMPro;
 
 public class PlayerToolSpawn : MonoBehaviour
 {
@@ -11,18 +12,18 @@ public class PlayerToolSpawn : MonoBehaviour
     [SerializeField] private List<GameObject> objectList,spawnedObjectList;
     [SerializeField] private List<Material> materialList;
     private Color matColor = new Color(1,1,1,1);
-
-    [HideInInspector] public bool MenuIsOn = false;
+    [SerializeField] private TMP_Text ToolText;
 
     private void Awake()
     {
+        ToolText.text = objectList[localItemId].name.ToString();
         playerCamera = GetComponentInParent<PlayerMovement>().Camera;
         inputSpawn.action.performed += ToolSpawnInput;
         inputUndo.action.performed += UndoLastObject;
     }
     public void ToolSpawnObject(int ItemId) // called either locally or by spawnMenu
     {
-        if (MenuIsOn) return; // cant spawn items if menu is on
+        if(GetComponentInParent<PlayerMovement>().CantShoot) return; // cant spawn items if menu is on
 
         float distance = MaxDistance;// local instance of maxDistance
         if (Physics.Raycast(playerCamera.position, playerCamera.forward, out RaycastHit hitI, MaxDistance))//we check if we hit something along the way
@@ -37,6 +38,7 @@ public class PlayerToolSpawn : MonoBehaviour
     }
     public void ChangeSpawnObject(int ItemId) // this is called inside the spawnMenu to change the spawned object
     {
+        ToolText.text = objectList[ItemId].name.ToString();
         localItemId = ItemId;
     }
     void ToolSpawnInput(InputAction.CallbackContext obj) //on click
