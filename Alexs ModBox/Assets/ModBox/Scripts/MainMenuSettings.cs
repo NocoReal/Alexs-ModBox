@@ -3,17 +3,21 @@ using UnityEngine.SceneManagement;
 using TMPro;
 using UnityEngine.UI;
 using System.Collections;
+ 
 public class MainMenuSettings : MonoBehaviour
 {
     [SerializeField] private Slider volumeSlider, sensititySlider;
-    [SerializeField] private TMP_Text volumeValueText, sensitityValueText;
+    [SerializeField] private TMP_Text volumeValueText, sensitityValueText, Title;
+    [SerializeField] private Image Logo;
     private float volumeValue, sensitivityValue;
-    bool cooldown = true;
+    [SerializeField] float lowerAlpha;
+    bool cooldown = true, inSettings=false;
 
     void Awake()
     {
         QualitySettings.vSyncCount = 1;
         Application.targetFrameRate = 240;
+        FirstTimeLoad();
         LoadSettings(true);
         StartCoroutine(SettingsCooldown());
     }
@@ -24,6 +28,16 @@ public class MainMenuSettings : MonoBehaviour
     public void Quit()
     {
         Application.Quit();
+    }
+    public void toggleLogo()
+    {
+        inSettings = !inSettings;
+        Color col = Title.color;
+        col.a = inSettings ? lowerAlpha:1f;
+        Title.color = col;
+        col = Logo.color;
+        col.a = inSettings ? lowerAlpha:1f;
+        Logo.color = col;
     }
     IEnumerator SettingsCooldown()
     {
@@ -51,12 +65,24 @@ public class MainMenuSettings : MonoBehaviour
             sensitivityValue = PlayerPrefs.GetFloat("SensitivityValue");
             volumeValue = PlayerPrefs.GetFloat("VolumeValue");
         }
-        
-        AudioListener.volume = volumeValue/100f;
+
+        AudioListener.volume = volumeValue / 100f;
         volumeSlider.value = volumeValue;
         sensititySlider.value = sensitivityValue;
 
         volumeValueText.text = volumeValue.ToString("F0");
         sensitityValueText.text = sensitivityValue.ToString("F2");
+    }
+    void FirstTimeLoad()
+    {
+        if (PlayerPrefs.GetInt("FirstTime") == 0)
+        {
+            cooldown = false;
+            UpdateSettings();
+        }
+        else
+        {
+            PlayerPrefs.SetInt("FirstTime", 1);
+        }
     }
 }

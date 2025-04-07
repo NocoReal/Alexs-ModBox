@@ -19,7 +19,23 @@ public class SpawnMenu : MonoBehaviour
     [HideInInspector]
     public bool escapeMenuOn = false,spawnMenu = false;
 
-    private void Awake()
+    private void OnEnable() // we subscribe to the inputs onEnable
+    {
+        TurnOnMenuButton.action.performed += ToggleMenuInput;
+        TurnOnMenuButton.action.canceled += ToggleMenuInput;
+    }
+    private void OnDisable() // unsubscribe from them if we're destroyed
+    {
+        TurnOnMenuButton.action.performed -= ToggleMenuInput;
+        TurnOnMenuButton.action.canceled -= ToggleMenuInput;
+    }
+    private void OnDestroy() // unsubscribe from them if we're disabled
+    {
+        TurnOnMenuButton.action.performed -= ToggleMenuInput;
+        TurnOnMenuButton.action.canceled -= ToggleMenuInput;
+    }
+
+    private void Awake() 
     {
         PM = Player.GetComponent<PlayerMovement>();
         PTS = Player.GetComponent<PlayerToolSpawn>();
@@ -44,8 +60,6 @@ public class SpawnMenu : MonoBehaviour
         HSVPanel.gameObject.SetActive(hsvOn);
         RGBPanel.gameObject.SetActive(!hsvOn);
 
-        TurnOnMenuButton.action.performed += ToggleMenuInput;
-        TurnOnMenuButton.action.canceled += ToggleMenuInput;
 
         CursorPos = new Vector2(Screen.width / 2, Screen.height / 2);
     }

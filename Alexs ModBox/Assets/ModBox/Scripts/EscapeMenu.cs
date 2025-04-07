@@ -17,6 +17,22 @@ public class EscapeMenu : MonoBehaviour
     private PlayerMovement PM;
     private SpawnMenu SM;
 
+    private void OnEnable() // we subscribe to the inputs onEnable
+    {
+        inputEscape.action.performed += EscapeButtonPressed;
+
+    }
+    private void OnDestroy() // unsubscribe from them if we're destroyed
+    {
+        inputEscape.action.performed -= EscapeButtonPressed;
+
+    }
+    private void OnDisable() // unsubscribe from them if we're disabled
+    {
+        inputEscape.action.performed -= EscapeButtonPressed;
+
+    }
+
     void Awake()
     {
         EscapeMenuParent.SetActive(false);
@@ -25,7 +41,6 @@ public class EscapeMenu : MonoBehaviour
         PM = Player.GetComponent<PlayerMovement>();
         SM = GetComponentInParent<SpawnMenu>();
 
-        inputEscape.action.performed += EscapeButtonPressed;
         LoadSettings(true);
         StartCoroutine(SettingsCooldown());
 
@@ -80,6 +95,7 @@ public class EscapeMenu : MonoBehaviour
 
     public void ReturnToMainMenu()
     {
+        Time.timeScale = 1.0f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex - 1);
     }
     IEnumerator SettingsCooldown()

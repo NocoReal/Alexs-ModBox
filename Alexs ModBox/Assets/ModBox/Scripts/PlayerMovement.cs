@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -6,14 +7,14 @@ public class PlayerMovement : MonoBehaviour
     private static readonly float Epsilon = 0.0254f * 0.03125f, unitToMeter = 0.0254f; // quake/source units to meters
     private float hostFrame, rampConsider, usedSpeed;
 
-    private bool OnGround, WasGrounded, stepNextTick = false, IsCrouched = false, WasCrouched = false,CrouchInput=false,IsRunning=false, jumpButtonPressed = false, oldJumpButtonPressed = false;
+    private bool OnGround, WasGrounded, stepNextTick = false, IsCrouched = false, WasCrouched = false, CrouchInput = false, IsRunning = false, jumpButtonPressed = false, oldJumpButtonPressed = false;
     private Vector3 oldStepPos, oldStepVel, playerBoundingBox, directionWish; //for stepping
-
+    [SerializeField] private TMP_Text SpeedText;
 
     [HideInInspector]
     public float yRotation, xRotation;
     [HideInInspector]
-    public bool CantAccel = false,CantRotateCam = false, CantShoot = false;
+    public bool CantAccel = false, CantRotateCam = false, CantShoot = false;
 
     private Rigidbody rb;
     private BoxCollider col;
@@ -50,12 +51,60 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("Inputs")]
     [SerializeField] private InputActionReference inputMove;
-    [SerializeField] private InputActionReference inputJump, inputLook, inputCrouch,inputRun;
+    [SerializeField] private InputActionReference inputJump, inputLook, inputCrouch, inputRun;
     [Header("Misc")]
     public Transform Camera;
 
     public LayerMask GroundMask;
 
+    private void OnEnable() // we subscribe to the inputs onEnable
+    {
+        inputMove.action.performed += readMoveInput;
+        inputMove.action.canceled += readMoveInput;
+
+        inputCrouch.action.performed += toggleCrouchInput;
+        inputCrouch.action.canceled += toggleCrouchInput;
+
+        inputRun.action.performed += toggleRunInput;
+        inputRun.action.canceled += toggleRunInput;
+
+        inputLook.action.performed += CameraMove;
+
+        inputJump.action.performed += ToggleSpace;
+        inputJump.action.canceled += ToggleSpace;
+    }
+    private void OnDestroy() // unsubscribe from them if we're destroyed
+    {
+        inputMove.action.performed -= readMoveInput;
+        inputMove.action.canceled -= readMoveInput;
+
+        inputCrouch.action.performed -= toggleCrouchInput;
+        inputCrouch.action.canceled -= toggleCrouchInput;
+
+        inputRun.action.performed -= toggleRunInput;
+        inputRun.action.canceled -= toggleRunInput;
+
+        inputLook.action.performed -= CameraMove;
+
+        inputJump.action.performed -= ToggleSpace;
+        inputJump.action.canceled -= ToggleSpace;
+    }
+    private void OnDisable() // unsubscribe from them if we're disabled
+    {
+        inputMove.action.performed -= readMoveInput;
+        inputMove.action.canceled -= readMoveInput;
+
+        inputCrouch.action.performed -= toggleCrouchInput;
+        inputCrouch.action.canceled -= toggleCrouchInput;
+
+        inputRun.action.performed -= toggleRunInput;
+        inputRun.action.canceled -= toggleRunInput;
+
+        inputLook.action.performed -= CameraMove;
+
+        inputJump.action.performed -= ToggleSpace;
+        inputJump.action.canceled -= ToggleSpace;
+    }
 
     void Awake() // initializing some stuff
     {
@@ -76,30 +125,21 @@ public class PlayerMovement : MonoBehaviour
 
         Physics.gravity = new Vector3(0, -gravity * unitToMeter, 0);
 
-        inputMove.action.performed += ctx => moveDirection = ctx.ReadValue<Vector2>();
-        inputMove.action.canceled += ctx => moveDirection = Vector2.zero;
-
-        inputCrouch.action.performed += toggleCrouchInput;
-        inputCrouch.action.canceled += toggleCrouchInput;
-
-        inputRun.action.performed += toggleRunInput;
-        inputRun.action.canceled += toggleRunInput;
-
-        inputLook.action.performed += ctx => CameraMove(ctx.ReadValue<Vector2>());
-
-        inputJump.action.performed += ctx => jumpButtonPressed = true;
-        inputJump.action.canceled += ctx => jumpButtonPressed = false;
-
-
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
         Camera.transform.position = transform.position + Vector3.up * playerEyeHeight * unitToMeter;
     }
+    void readMoveInput(InputAction.CallbackContext obj)
+    {
+        moveDirection = obj.ReadValue<Vector2>();
+        moveDirection = moveDirection.magnitude<0.1f ? Vector2.zero : moveDirection;
+    }
     #region Camera
-    void CameraMove(Vector2 mouseDelta)
+    void CameraMove(InputAction.CallbackContext obj)
     {
         if (CantRotateCam) return;
+        Vector2 mouseDelta = obj.ReadValue<Vector2>();
         float xSens = 10 * mouseSensitivity;
         float ySens = xSens;
 
@@ -125,14 +165,18 @@ public class PlayerMovement : MonoBehaviour
         return (right * moveInput.x + forward * moveInput.y);
     }
     #endregion
+    void ToggleSpace(InputAction.CallbackContext obj)
+    {
+        jumpButtonPressed = !jumpButtonPressed;
+    }
     void CheckGroundState()
     {
         WasGrounded = OnGround;
         //VisualiseBox.DisplayBoxCast(transform.position + Vector3.up * 0.4f * unitToMeter, col.bounds.extents, Vector3.down, transform.rotation, 0.5f * unitToMeter, Color.red);
         Physics.BoxCast(transform.position + Vector3.up * 0.4f * unitToMeter, col.bounds.extents, Vector3.down, out RaycastHit hitInfo, transform.rotation, 0.5f * unitToMeter, GroundMask);
 
-            OnGround = hitInfo.normal.y > rampConsider;
-            directionWish = OnGround ? Vector3.ProjectOnPlane(RotateInputByCamera(moveDirection, Camera).normalized, hitInfo.normal).normalized : RotateInputByCamera(moveDirection, Camera).normalized;
+        OnGround = hitInfo.normal.y > rampConsider;
+        directionWish = OnGround ? Vector3.ProjectOnPlane(RotateInputByCamera(moveDirection, Camera).normalized, hitInfo.normal).normalized : RotateInputByCamera(moveDirection, Camera).normalized;
 
     }
     #region Movement
@@ -227,7 +271,7 @@ public class PlayerMovement : MonoBehaviour
     }
     void CrouchFunc()
     {
-        if(CantAccel) return;
+        if (CantAccel) return;
         // Toggle crouch state only when input changes
         if (CrouchInput == WasCrouched) return;
         // Check if we can actually crouch/stand
@@ -236,19 +280,20 @@ public class PlayerMovement : MonoBehaviour
 
         bool canChangeStance;
         if (IsCrouched)
-            canChangeStance = !Physics.BoxCast(transform.position, size, Vector3.up, Quaternion.identity, dist, GroundMask); // Trying to stand up - check upwards
+            canChangeStance = !Physics.BoxCast(transform.position, size, Vector3.up, Quaternion.identity, dist*2, GroundMask); // Trying to stand up - check upwards
         else
-            canChangeStance = !Physics.BoxCast(transform.position, size, OnGround ? Vector3.up : Vector3.down, Quaternion.identity, dist, GroundMask); // Trying to crouch - check in current direction based on ground state
+            canChangeStance = !Physics.BoxCast(transform.position, size, OnGround ? Vector3.up : Vector3.down, Quaternion.identity, dist*2, GroundMask); // Trying to crouch - check in current direction based on ground state
 
         // Only change stance if we can
         if (canChangeStance)
-                IsCrouched = !IsCrouched;
-        
+            IsCrouched = !IsCrouched;
+
         // Update camera and collider based on current stance
         if (!IsCrouched)
         {
             // Standing
-            rb.position += Vector3.up * dist;
+            if (OnGround) rb.position += Vector3.up * dist;
+
             Camera.transform.position = transform.position + Vector3.up * playerEyeHeight * unitToMeter;
             playerBoundingBox = new Vector3(playerWidthLength, playerHeight, playerWidthLength) * unitToMeter;
             col.size = playerBoundingBox;
@@ -256,8 +301,9 @@ public class PlayerMovement : MonoBehaviour
         else
         {
             // Crouching
-            rb.position -= Vector3.up * dist;
-            Camera.transform.position = transform.position + Vector3.up * playerEyeHeightCrouch * unitToMeter;
+            if (OnGround) rb.position -= Vector3.up * dist;
+
+            Camera.transform.position = transform.position + Vector3.up * (playerEyeHeightCrouch * unitToMeter - dist);
             playerBoundingBox = new Vector3(playerWidthLength, playerHeightCrouch, playerWidthLength) * unitToMeter;
             col.size = playerBoundingBox;
         }
@@ -269,7 +315,7 @@ public class PlayerMovement : MonoBehaviour
     void WalkMove()
     {
         usedSpeed = IsCrouched ? speedCrouch : IsRunning ? speedRun : speedWalk;
-        
+
         Accelerate(accelerate, usedSpeed);
 
         StepMove(rb.linearVelocity);
@@ -282,7 +328,8 @@ public class PlayerMovement : MonoBehaviour
 
     void CheckJump()
     {
-        if(CantAccel) return;
+
+        if (CantAccel) return;
         if (!OnGround) return;
         if (oldJumpButtonPressed) return; // if we're still holding space return
         oldJumpButtonPressed = true; // set it so we cant bunnyhop without trying
@@ -304,7 +351,7 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    
+
 
     #endregion
     private void FixedUpdate()
@@ -317,6 +364,9 @@ public class PlayerMovement : MonoBehaviour
         CrouchFunc();
         CheckGroundState();
         FullWalkMove();
+
+        float speed = Mathf.Ceil(new Vector3(rb.linearVelocity.x,0,rb.linearVelocity.z).magnitude / unitToMeter/4)*4;
+        SpeedText.text = speed.ToString();
     }
 
     void toggleCrouchInput(InputAction.CallbackContext obj)
@@ -327,4 +377,6 @@ public class PlayerMovement : MonoBehaviour
     {
         IsRunning = !IsRunning;
     }
+
+    
 }

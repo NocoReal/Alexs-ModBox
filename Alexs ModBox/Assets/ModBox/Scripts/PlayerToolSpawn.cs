@@ -8,33 +8,50 @@ public class PlayerToolSpawn : MonoBehaviour
     private Transform playerCamera;
     private int localItemId = 0, surfaceTypeId = 0;
     [SerializeField] private float MaxDistance = 20;
-    [SerializeField] private InputActionReference inputSpawn,inputUndo;
-    [SerializeField] private List<GameObject> objectList,spawnedObjectList;
+    [SerializeField] private InputActionReference inputSpawn, inputUndo;
+    [SerializeField] private List<GameObject> objectList, spawnedObjectList;
+    [SerializeField] private List<int> objectListInt;
     [SerializeField] private List<Material> materialList;
-    private Color matColor = new Color(1,1,1,1);
+    private Color matColor = new Color(1, 1, 1, 1);
     [SerializeField] private TMP_Text ToolText;
+    private void OnEnable() // we subscribe to the inputs onEnable
+    {
+        inputUndo.action.performed += UndoLastObject;
+        inputSpawn.action.performed += ToolSpawnInput;
+    }
+    private void OnDisable() // unsubscribe from them if we're destroyed
+    {
+        inputUndo.action.performed -= UndoLastObject;
+        inputSpawn.action.performed -= ToolSpawnInput;
+
+    }
+    private void OnDestroy() // unsubscribe from them if we're disabled
+    {
+        inputUndo.action.performed -= UndoLastObject;
+        inputSpawn.action.performed -= ToolSpawnInput;
+
+    }
 
     private void Awake()
     {
         ToolText.text = objectList[localItemId].name.ToString();
         playerCamera = GetComponentInParent<PlayerMovement>().Camera;
-        inputSpawn.action.performed += ToolSpawnInput;
-        inputUndo.action.performed += UndoLastObject;
     }
     public void ToolSpawnObject(int ItemId) // called either locally or by spawnMenu
     {
-        if(GetComponentInParent<PlayerMovement>().CantShoot) return; // cant spawn items if menu is on
+        if (GetComponentInParent<PlayerMovement>().CantShoot) return; // cant spawn items if menu is on
 
         float distance = MaxDistance;// local instance of maxDistance
         if (Physics.Raycast(playerCamera.position, playerCamera.forward, out RaycastHit hitI, MaxDistance))//we check if we hit something along the way
             distance = hitI.distance;
 
-        Vector3 spawnPos = playerCamera.position + (playerCamera.forward * distance)+ Vector3.up /2;
+        Vector3 spawnPos = playerCamera.position + (playerCamera.forward * distance) + Vector3.up / 2;
 
-        GameObject tempObj = Instantiate(objectList[ItemId], spawnPos, Quaternion.identity);
+        GameObject tempObj = Instantiate(objectList[ItemId], spawnPos, Quaternion.Euler(new Vector3(0, playerCamera.rotation.eulerAngles.y, 0)));
         tempObj.GetComponent<Renderer>().material = materialList[surfaceTypeId];
         tempObj.GetComponent<Renderer>().material.color = matColor;
         spawnedObjectList.Add(tempObj);
+        objectListInt.Add(ItemId);
     }
     public void ChangeSpawnObject(int ItemId) // this is called inside the spawnMenu to change the spawned object
     {
@@ -60,9 +77,10 @@ public class PlayerToolSpawn : MonoBehaviour
         GameObject Obj = spawnedObjectList[spawnedObjectList.Count - 1];
         Debug.Log(Obj.name.Substring(0, Obj.name.Length - 7).ToString());
         spawnedObjectList.Remove(Obj);
+        objectListInt.Remove(objectListInt[objectListInt.Count - 1]);
         Destroy(Obj);
     }
-    
+
     public void DeleteEverything()
     {
         foreach (var obj in spawnedObjectList)
@@ -71,11 +89,31 @@ public class PlayerToolSpawn : MonoBehaviour
             Destroy(obj);
         }
         spawnedObjectList.Clear();
-
+        objectListInt.Clear();
     }
     public void KillZoneDestroy(GameObject obj)
     {
         Debug.Log(obj.name.Substring(0, obj.name.Length - 7).ToString());
+        objectListInt.RemoveAt(spawnedObjectList.IndexOf(obj));
         spawnedObjectList.Remove(obj);
+    }
+    public List<GameObject> ReturnObjectList()
+    {
+        return spawnedObjectList;
+    }
+    public List<int> ReturnSpawnObjectInt()
+    {
+        return objectListInt;
+    }
+    public void SetSpawnedObjectList(int count, List<int> ints, List<int> surface, List<Vector4> col, List<Vector3> pos, List<Quaternion> rot)
+    {
+        objectListInt = ints;
+        for (int i =0; i<count;++i)
+        {
+            GameObject tempObj = Instantiate(objectList[ints[i]], pos[i], rot[i]);
+            tempObj.GetComponent<Renderer>().material = materialList[surface[i]];
+            tempObj.GetComponent<Renderer>().material.color = new Color(col[i].x, col[i].y, col[i].z, col[i].w);
+            spawnedObjectList.Add(tempObj);
+        }
     }
 }
