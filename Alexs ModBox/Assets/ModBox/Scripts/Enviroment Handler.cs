@@ -45,6 +45,7 @@ public class EnviromentHandler : MonoBehaviour
             objectIntList = new List<int>(),
             surfaceIntList = new List<int>(),
             objectPositions = new List<Vector3>(),
+            objectVelocities = new List<Vector3>(),
             objectRotations = new List<Quaternion>(),
             objectColors = new List<Vector4>()
         };
@@ -59,6 +60,7 @@ public class EnviromentHandler : MonoBehaviour
             data.surfaceIntList.Add(mat);
             Color col = obj.GetComponent<Renderer>().material.color;
             data.objectColors.Add(new Vector4(col.r, col.g, col.b, col.a));
+            data.objectVelocities.Add(obj.GetComponent<Rigidbody>().linearVelocity);
         }
         data.objectIntList = new List<int>(ObjectIntList);
 
@@ -77,7 +79,7 @@ public class EnviromentHandler : MonoBehaviour
         string json = System.IO.File.ReadAllText(path);
         SaveData data = JsonUtility.FromJson<SaveData>(json);
 
-        PTS.SetSpawnedObjectList(data.objectIntList.Count, data.objectIntList, data.surfaceIntList, data.objectColors, data.objectPositions, data.objectRotations);
+        PTS.SetSpawnedObjectList(data.objectIntList.Count, data.objectIntList, data.surfaceIntList, data.objectColors, data.objectPositions, data.objectRotations, data.objectVelocities);
         rb.position = data.playerPosition;
         rb.linearVelocity = data.playerVelocity;
         Camera.transform.rotation = data.cameraRotation;

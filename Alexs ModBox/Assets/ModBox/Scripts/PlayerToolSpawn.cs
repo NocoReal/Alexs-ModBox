@@ -10,7 +10,7 @@ public class PlayerToolSpawn : MonoBehaviour
     [SerializeField] private float MaxDistance = 20;
     [SerializeField] private InputActionReference inputSpawn, inputUndo;
     [SerializeField] private List<GameObject> objectList, spawnedObjectList;
-    [SerializeField] private List<int> objectListInt;
+    private List<int> objectListInt;
     [SerializeField] private List<Material> materialList;
     private Color matColor = new Color(1, 1, 1, 1);
     [SerializeField] private TMP_Text ToolText;
@@ -105,15 +105,27 @@ public class PlayerToolSpawn : MonoBehaviour
     {
         return objectListInt;
     }
-    public void SetSpawnedObjectList(int count, List<int> ints, List<int> surface, List<Vector4> col, List<Vector3> pos, List<Quaternion> rot)
+    public void SetSpawnedObjectList(int count, List<int> ints, List<int> surface, List<Vector4> col, List<Vector3> pos, List<Quaternion> rot, List<Vector3> vel)
     {
         objectListInt = ints;
-        for (int i =0; i<count;++i)
+        for (int i = 0; i < count; ++i)
         {
-            GameObject tempObj = Instantiate(objectList[ints[i]], pos[i], rot[i]);
-            tempObj.GetComponent<Renderer>().material = materialList[surface[i]];
-            tempObj.GetComponent<Renderer>().material.color = new Color(col[i].x, col[i].y, col[i].z, col[i].w);
-            spawnedObjectList.Add(tempObj);
+            int objectId = ints[i];  // Get the ID from the loaded data
+            if (objectId >= 0 && objectId < objectList.Count)
+            {
+                GameObject tempObj = Instantiate(objectList[objectId], pos[i], rot[i]);
+                tempObj.GetComponent<Renderer>().material = materialList[surface[i]];
+                tempObj.GetComponent<Renderer>().material.color = new Color(col[i].x, col[i].y, col[i].z, col[i].w);
+                // Optional: Set the velocity if needed
+                tempObj.GetComponent<Rigidbody>().linearVelocity = vel[i];
+
+                spawnedObjectList.Add(tempObj);
+            }
+            else
+            {
+                Debug.LogError("Invalid object ID: " + objectId);  // To help with debugging
+            }
         }
     }
+
 }
